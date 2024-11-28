@@ -1,0 +1,21 @@
+# Usa una imagen ligera de Python
+FROM python:3.11-slim
+
+# Establece el directorio de trabajo dentro del contenedor
+WORKDIR /app
+
+# Copia el archivo Pipfile y Pipfile.lock para instalar dependencias
+COPY Pipfile /app/
+
+# Instala pipenv y las dependencias del proyecto
+RUN pip install --no-cache-dir pipenv && \
+    pipenv install --deploy
+    
+# Copia el resto de los archivos de la aplicación
+COPY . /app
+
+# Exponer el puerto 8000 para FastAPI
+EXPOSE 8000
+
+# Comando para ejecutar la aplicación
+CMD ["pipenv", "run", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]

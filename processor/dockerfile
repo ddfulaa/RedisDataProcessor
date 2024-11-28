@@ -1,0 +1,21 @@
+# Usa una imagen ligera de Python
+FROM python:3.11-slim
+
+# Establece el directorio de trabajo dentro del contenedor
+WORKDIR /app
+
+# Copia el archivo Pipfile y Pipfile.lock para instalar dependencias
+COPY Pipfile /app/
+
+# Instala pipenv y las dependencias del proyecto
+RUN pip install --no-cache-dir pipenv && \
+    pipenv install --deploy
+
+# Copia el resto de los archivos de la aplicación
+COPY . /app
+
+# Exponer puertos (opcional, para debug)
+EXPOSE 8000
+
+# Comando para ejecutar el procesador
+CMD ["pipenv", "run", "python", "main.py"]

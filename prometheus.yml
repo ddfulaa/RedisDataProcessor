@@ -1,0 +1,9 @@
+global:
+  scrape_interval: 5s  # Intervalo de tiempo para recopilar métricas
+  evaluation_interval: 5s  # Intervalo para evaluar reglas de alertas
+
+scrape_configs:
+  # Redis Exporter
+  - job_name: 'redis_exporter'
+    static_configs:
+      - targets: ['redis-exporter:9121']  # Exportador de métricas para Redis

@@ -1,0 +1,110 @@
+services:
+  redis:
+    image: redis:7
+    container_name: redis
+    command: ["redis-server", "--save", "60", "1", "--appendonly", "yes"]  # Persistencia habilitada
+    ports:
+      - "6379:6379"  # Exponer Redis
+    volumes:
+      - redis_data:/data
+    networks:
+      - app_network
+
+  redis-exporter:
+    image: oliver006/redis_exporter:latest
+    container_name: redis_exporter
+    ports:
+      - "9121:9121"  # Exportador de métricas
+    networks:
+      - app_network
+    environment:
+      REDIS_ADDR: "redis:6379"
+    command:
+      - --check-streams=queue_a,queue_b
+      - --streams-exclude-consumer-metrics=false
+
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    ports:
+      - "9090:9090"  # Exponer Prometheus
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml  # Archivo de configuración
+    networks:
+      - app_network
+
+  fastapi-api:
+    build:
+      context: ./fastapi
+      dockerfile: Dockerfile
+    container_name: fastapi-api
+    ports:
+      - "8000:8000"  # Exponer FastAPI
+    depends_on:
+      - redis
+      - sqlserver
+    networks:
+      - app_network
+
+  processor:
+    build:
+      context: ./processor
+      dockerfile: Dockerfile
+    depends_on:
+      - redis
+    networks:
+      - app_network
+    deploy:
+      replicas: 4  # Escalable según la necesidad
+    command: >
+      sh -c 'export CONSUMER_NAME=$(hostname) && pipenv run python main.py'
+
+  writer:
+    build:
+      context: ./writer
+      dockerfile: Dockerfile
+    depends_on:
+      - redis
+      - sqlserver
+    environment:
+      - DATABASE_URL=mssql+pyodbc://sa:YourPassword123@sqlserver:1433/yourdb?driver=ODBC+Driver+18+for+SQL+Server&TrustServerCertificate=yes
+      - CONSUMER_NAME=$HOSTNAME
+    networks:
+      - app_network
+
+  sqlserver:
+    build:
+      context: .
+      dockerfile: Dockerfile.sqlserver  # El Dockerfile personalizado
+    container_name: sqlserver
+    environment:
+      SA_PASSWORD: "YourPassword123"
+      ACCEPT_EULA: "Y"
+    ports:
+      - "1433:1433"
+    volumes:
+      - sqlserver_data:/var/opt/mssql  # Montar un volumen persistente para datos
+    networks:
+      - app_network
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    ports:
+      - "3000:3000"  # Puerto para acceder a Grafana
+    networks:
+      - app_network
+    depends_on:
+      - prometheus
+    volumes:
+      - grafana_data:/var/lib/grafana
+
+volumes:
+  grafana_data:
+  redis_data:
+  sqlserver_data:
+
+networks:
+  app_network:
+    driver: bridge
